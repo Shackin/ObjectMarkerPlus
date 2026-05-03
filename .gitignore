@@ -1,0 +1,62 @@
+.gradle
+build
+.idea/
+.project
+.settings/
+.classpath
+nbactions.xml
+nb-configuration.xml
+nbproject/
+build/
+out/
+target/
+
+# Gradle
+.gradle/
+gradle-app.setting
+gradle-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse (just in case)
+.classpath
+.project
+.settings/
+
+# Mac / OS junk
+.DS_Store
+
+# Windows junk
+Thumbs.db
+
+# Logs
+*.log
+runelite-client.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Local config / runtime data (DO NOT COMMIT)
+runelite/
+.runelite/
+
+# Kotlin (safe to include even if unused)
+*.kotlin_metadata
+
+# Node / frontend (only if ever added later)
+node_modules/
+
+# Backup files
+*~
+*.bak
+
+# Compiled classes (extra safety)
+*.class
+
+# Optional: ignore IDE run configs
+.idea/runConfigurations/
