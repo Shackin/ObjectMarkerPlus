@@ -28,8 +28,6 @@ import java.util.Set;
 )
 public class ObjectMarkerPlugin extends Plugin
 {
-    // Using "objectindicators" config group to keep this plugin lite.
-    // This is to allow importing/exporting
     private static final String CONFIG_GROUP = "objectindicators";
 
     private static final WidgetMenuOption EXPORT_OPTION =
@@ -42,15 +40,12 @@ public class ObjectMarkerPlugin extends Plugin
                     InterfaceID.Orbs.WORLDMAP,
                     InterfaceID.OrbsNomap.WORLDMAP);
 
-    @Inject
-    private Gson gson;
-
+    @Inject private Gson gson;
     @Inject private MenuManager menuManager;
     @Inject private ConfigManager configManager;
     @Inject private ChatMessageManager chatMessageManager;
     @Inject private Client client;
 
-    // Show / Hide
     @Override
     protected void startUp()
     {
@@ -65,7 +60,6 @@ public class ObjectMarkerPlugin extends Plugin
         menuManager.removeManagedCustomMenu(IMPORT_OPTION);
     }
 
-    // REGION
     private int getRegion()
     {
         if (client.getLocalPlayer() == null)
@@ -78,6 +72,31 @@ public class ObjectMarkerPlugin extends Plugin
     private String regionKey(int region)
     {
         return "region_" + region;
+    }
+
+    // Cleaning old configuration imputs/formatting/backslash
+    private String sanitizeInput(String input)
+    {
+        if (input == null) return "";
+        String clean = input.trim();
+
+        // Strip "objectindicators.region_XXXXX=" prefix
+        if (clean.contains("["))
+        {
+            clean = clean.substring(clean.indexOf("["));
+        }
+
+        // Remove backslash escapes (\: and \#)
+        clean = clean.replace("\\:", ":");
+        clean = clean.replace("\\#", "#");
+
+        return clean;
+    }
+
+    // decimal formatting
+    private int getSafeInt(JsonObject obj, String key)
+    {
+        return obj.get(key).getAsJsonPrimitive().getAsNumber().intValue();
     }
 
     // EXPORT
@@ -117,9 +136,9 @@ public class ObjectMarkerPlugin extends Plugin
     // IMPORT
     private void HImportObjMarkers(MenuEntry ignored)
     {
-        String clipboard = ObjectMarkerClip.get();
+        String clipboard = sanitizeInput(ObjectMarkerClip.get());
 
-        if (clipboard == null || clipboard.isEmpty())
+        if (clipboard.isEmpty())
         {
             sendChat("Clipboard is empty.");
             return;
@@ -151,7 +170,7 @@ public class ObjectMarkerPlugin extends Plugin
                     continue;
                 }
 
-                int region = obj.get("regionId").getAsInt();
+                int region = getSafeInt(obj, "regionId");
                 regionMap.computeIfAbsent(region, k -> new JsonArray()).add(obj);
             }
 
@@ -227,19 +246,14 @@ public class ObjectMarkerPlugin extends Plugin
         }
     }
 
-
-    // DUPE
-
     private String markerKey(JsonObject obj)
     {
-        return obj.get("id").getAsInt() + "_" +
-                obj.get("regionX").getAsInt() + "_" +
-                obj.get("regionY").getAsInt() + "_" +
-                obj.get("z").getAsInt();
+        return getSafeInt(obj, "id") + "_" +
+                getSafeInt(obj, "regionX") + "_" +
+                getSafeInt(obj, "regionY") + "_" +
+                getSafeInt(obj, "z");
     }
 
-
-    // CHAT OUTPUT
     private void sendChat(String msg)
     {
         chatMessageManager.queue(
