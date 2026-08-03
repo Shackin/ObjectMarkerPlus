@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.inject.Provides;
+
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.MenuEntry;
@@ -15,6 +17,16 @@ import net.runelite.client.menus.WidgetMenuOption;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.api.gameval.InterfaceID;
+import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
+import net.runelite.api.events.GameObjectSpawned;
+import net.runelite.api.events.GameObjectDespawned;
+import net.runelite.api.GameObject;
+import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.GameState;
+
+import lombok.Getter;
 
 import javax.inject.Inject;
 import java.util.HashMap;
@@ -46,11 +58,37 @@ public class ObjectMarkerPlugin extends Plugin
     @Inject private ChatMessageManager chatMessageManager;
     @Inject private Client client;
 
+    @Inject private OverlayManager overlayManager;
+    @Inject private ObjectMarkerConfig config;
+    @Inject private ObjectMarkerRadiusOverlay radiusOverlay;
+
+    @Getter
+    private final Map<Integer, Integer> idRadiusMap = new HashMap<>();
+
+    @Getter
+    private final Map<String, Integer> nameRadiusMap = new HashMap<>();
+
+    @Getter
+    private final Map<Integer, Integer> resolvedRadiusCache = new HashMap<>();
+
+    @Getter
+    private final Set<GameObject> trackedObjects = new HashSet<>();
+
+    @Provides
+    ObjectMarkerConfig provideConfig(ConfigManager configManager)
+    {
+        return configManager.getConfig(ObjectMarkerConfig.class);
+    }
+
     @Override
     protected void startUp()
     {
         menuManager.addManagedCustomMenu(EXPORT_OPTION, this::HExportObjMarkers);
         menuManager.addManagedCustomMenu(IMPORT_OPTION, this::HImportObjMarkers);
+
+        // Parse config and draw
+        updateRadiusConfig();
+        overlayManager.add(radiusOverlay);
     }
 
     @Override
@@ -58,6 +96,13 @@ public class ObjectMarkerPlugin extends Plugin
     {
         menuManager.removeManagedCustomMenu(EXPORT_OPTION);
         menuManager.removeManagedCustomMenu(IMPORT_OPTION);
+
+        // Stop drawing/clear memory
+        overlayManager.remove(radiusOverlay);
+        idRadiusMap.clear();
+        nameRadiusMap.clear();
+        resolvedRadiusCache.clear(); // --- ADDED: Clear cache on shutdown ---
+        trackedObjects.clear();
     }
 
     private int getRegion()
@@ -262,5 +307,94 @@ public class ObjectMarkerPlugin extends Plugin
                         .runeLiteFormattedMessage(msg)
                         .build()
         );
+    }
+
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event)
+    {
+        if (event.getGameState() == GameState.LOADING)
+        {
+            trackedObjects.clear();
+        }
+    }
+
+    @Subscribe
+    public void onConfigChanged(ConfigChanged event)
+    {
+        // Textbox update
+        if (event.getGroup().equals("objectmarkerplus") &&
+                (event.getKey().equals("radiusIds") || event.getKey().equals("radiusNames")))
+        {
+            updateRadiusConfig();
+        }
+    }
+
+    @Subscribe
+    public void onGameObjectSpawned(GameObjectSpawned event)
+    {
+        GameObject gameObject = event.getGameObject();
+        if (gameObject != null)
+        {
+            trackedObjects.add(gameObject);
+        }
+    }
+
+    @Subscribe
+    public void onGameObjectDespawned(GameObjectDespawned event)
+    {
+        GameObject gameObject = event.getGameObject();
+        if (gameObject != null)
+        {
+            trackedObjects.remove(gameObject);
+        }
+    }
+
+    private void updateRadiusConfig()
+    {
+        idRadiusMap.clear();
+        nameRadiusMap.clear();
+        resolvedRadiusCache.clear(); // Clear cache when settings are changed
+
+        // 1. Parse IDs
+        String rawIds = config.radiusIds();
+        if (rawIds != null && !rawIds.trim().isEmpty())
+        {
+            String[] pairs = rawIds.split(",");
+            for (String pair : pairs)
+            {
+                String[] parts = pair.split(":");
+                if (parts.length == 2)
+                {
+                    try
+                    {
+                        int id = Integer.parseInt(parts[0].trim());
+                        int radius = Integer.parseInt(parts[1].trim());
+                        idRadiusMap.put(id, radius);
+                    }
+                    catch (NumberFormatException e) { }
+                }
+            }
+        }
+
+        String rawNames = config.radiusNames();
+        if (rawNames != null && !rawNames.trim().isEmpty())
+        {
+            String[] pairs = rawNames.split(",");
+            for (String pair : pairs)
+            {
+                String[] parts = pair.split(":");
+                if (parts.length == 2)
+                {
+                    try
+                    {
+                        // case-insensitive matching
+                        String name = parts[0].trim().toLowerCase();
+                        int radius = Integer.parseInt(parts[1].trim());
+                        nameRadiusMap.put(name, radius);
+                    }
+                    catch (NumberFormatException e) { }
+                }
+            }
+        }
     }
 }

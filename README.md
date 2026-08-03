@@ -1,10 +1,23 @@
-# ObjectMarkerPlus
-Right-click the World Map orb to import or export object markers.
+# Object Markers Plus
 
-### Requirements
-- Object Markers must be enabled.
+Plugin to Import/export default markers, highlight the radius around specific objects.
 
-### Usage
-- Exporting: You must be in the same region as the markers you want to export.
-- Importing: You can import markers from any region.
-- Imported markers in your current region do not update immediately, leave the area and return, or log out and back in or toggle the Object Markers plugin off and on again to refresh.
+---
+
+##  Import & Export (Default Markers)
+Right-click the **World Map orb** to import or export default object markers.
+
+* **Exporting:** You must be in the same region as the markers you want to export.
+* **Importing:** You can import markers from any region.
+* **Note:** Imported markers in your current region do not update immediately. Leave the area and return, log out and back in, or toggle the Object Markers plugin off and on again.
+
+---
+
+##  Radius Highlights
+Highlight the radius around objects using their Name or ID.
+
+### Format: `ID_or_Name : Radius_Size`
+* **Radius Size:** `0` highlights the object's base tile. `1` highlights 1 tile around it, etc.
+* **Example By Name:** Bank booth:0,Chair:4,Spore:1
+* **Example By ID:** 6084:0,088:4,37739:1
+
