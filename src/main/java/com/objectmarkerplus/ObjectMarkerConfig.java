@@ -56,21 +56,10 @@ public interface ObjectMarkerConfig extends Config
     }
 
     @ConfigItem(
-            keyName = "radiusIds",
-            name = "Object IDs",
-            description = "Format: id:radius,id:radius (e.g. 1234:2,5678:3)",
-            position = 5
-    )
-    default String radiusIds()
-    {
-        return "";
-    }
-
-    @ConfigItem(
             keyName = "radiusNames",
             name = "Object Names",
             description = "Format: name:radius,name:radius (e.g. table:3,bank booth:0)",
-            position = 6
+            position = 5
     )
     default String radiusNames()
     {
@@ -81,7 +70,7 @@ public interface ObjectMarkerConfig extends Config
             keyName = "showClickbox",
             name = "Show Clickbox",
             description = "Highlights the exact invisible clickable area of the object",
-            position = 7
+            position = 6
     )
     default boolean showClickbox()
     {
@@ -93,11 +82,10 @@ public interface ObjectMarkerConfig extends Config
             keyName = "clickboxColor",
             name = "Clickbox Color",
             description = "Color of the object's clickable area",
-            position = 8
+            position = 7
     )
     default Color clickboxColor()
     {
         return new Color(255, 0, 0, 50);
     }
-
 }

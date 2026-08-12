@@ -21,7 +21,6 @@ import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 
-
 public class ObjectMarkerRadiusOverlay extends Overlay
 {
     private final Client client;
@@ -80,16 +79,11 @@ public class ObjectMarkerRadiusOverlay extends Overlay
             // Check if already calculated
             if (!plugin.getResolvedRadiusCache().containsKey(id))
             {
-                // Cache miss
-                Integer radius = plugin.getIdRadiusMap().get(id);
-
-                if (radius == null)
+                Integer radius = null;
+                ObjectComposition comp = client.getObjectDefinition(id);
+                if (comp != null && comp.getName() != null)
                 {
-                    ObjectComposition comp = client.getObjectDefinition(id);
-                    if (comp != null && comp.getName() != null)
-                    {
-                        radius = plugin.getNameRadiusMap().get(comp.getName().toLowerCase());
-                    }
+                    radius = plugin.getNameRadiusMap().get(comp.getName().toLowerCase());
                 }
 
                 // Save to the cache (w/ null to stop recalculating of unconfigured objects)
@@ -240,7 +234,6 @@ public class ObjectMarkerRadiusOverlay extends Overlay
         return false;
     }
 
-    // Calcs (Calculates) the big box. If it fails (clipped by camera), splits it into 4 smaller boxes and try to redraw once.
     private Polygon inflatePolygon(Polygon poly, int pixels)
     {
         int cx = (poly.xpoints[0] + poly.xpoints[1] + poly.xpoints[2] + poly.xpoints[3]) / 4;

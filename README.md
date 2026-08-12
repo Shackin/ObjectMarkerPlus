@@ -14,10 +14,10 @@ Right-click the **World Map orb** to import or export default object markers.
 ---
 
 ##  Radius Highlights
-Highlight the radius around objects using their Name or ID.
+Highlight the radius around objects using their Name.
 
-### Format: `ID_or_Name : Radius_Size`
+### Format: `Name : Radius_Size`
 * **Radius Size:** `0` highlights the object's base tile. `1` highlights 1 tile around it, etc.
 * **Example By Name:** Bank booth:0,Chair:4,Spore:1
-* **Example By ID:** 6084:0,088:4,37739:1
+
 

@@ -62,9 +62,7 @@ public class ObjectMarkerPlugin extends Plugin
     @Inject private ObjectMarkerConfig config;
     @Inject private ObjectMarkerRadiusOverlay radiusOverlay;
 
-    @Getter
-    private final Map<Integer, Integer> idRadiusMap = new HashMap<>();
-
+    // REMOVED: idRadiusMap (User input for IDs is no longer allowed)
     @Getter
     private final Map<String, Integer> nameRadiusMap = new HashMap<>();
 
@@ -99,9 +97,8 @@ public class ObjectMarkerPlugin extends Plugin
 
         // Stop drawing/clear memory
         overlayManager.remove(radiusOverlay);
-        idRadiusMap.clear();
         nameRadiusMap.clear();
-        resolvedRadiusCache.clear(); // --- ADDED: Clear cache on shutdown ---
+        resolvedRadiusCache.clear();
         trackedObjects.clear();
     }
 
@@ -119,32 +116,27 @@ public class ObjectMarkerPlugin extends Plugin
         return "region_" + region;
     }
 
-    // Cleaning old configuration imputs/formatting/backslash
     private String sanitizeInput(String input)
     {
         if (input == null) return "";
         String clean = input.trim();
 
-        // Strip "objectindicators.region_XXXXX=" prefix
         if (clean.contains("["))
         {
             clean = clean.substring(clean.indexOf("["));
         }
 
-        // Remove backslash escapes (\: and \#)
-        clean = clean.replace("\\:", ":");
-        clean = clean.replace("\\#", "#");
+        clean = clean.replace(":", ":");
+        clean = clean.replace("#", "#");
 
         return clean;
     }
 
-    // decimal formatting
     private int getSafeInt(JsonObject obj, String key)
     {
         return obj.get(key).getAsJsonPrimitive().getAsNumber().intValue();
     }
 
-    // EXPORT
     private void HExportObjMarkers(MenuEntry ignored)
     {
         int region = getRegion();
@@ -178,7 +170,6 @@ public class ObjectMarkerPlugin extends Plugin
         }
     }
 
-    // IMPORT
     private void HImportObjMarkers(MenuEntry ignored)
     {
         String clipboard = sanitizeInput(ObjectMarkerClip.get());
@@ -321,9 +312,8 @@ public class ObjectMarkerPlugin extends Plugin
     @Subscribe
     public void onConfigChanged(ConfigChanged event)
     {
-        // Textbox update
-        if (event.getGroup().equals("objectmarkerplus") &&
-                (event.getKey().equals("radiusIds") || event.getKey().equals("radiusNames")))
+        // Only listen for changes to the Names configuration now
+        if (event.getGroup().equals("objectmarkerplus") && event.getKey().equals("radiusNames"))
         {
             updateRadiusConfig();
         }
@@ -351,30 +341,8 @@ public class ObjectMarkerPlugin extends Plugin
 
     private void updateRadiusConfig()
     {
-        idRadiusMap.clear();
         nameRadiusMap.clear();
         resolvedRadiusCache.clear(); // Clear cache when settings are changed
-
-        // 1. Parse IDs
-        String rawIds = config.radiusIds();
-        if (rawIds != null && !rawIds.trim().isEmpty())
-        {
-            String[] pairs = rawIds.split(",");
-            for (String pair : pairs)
-            {
-                String[] parts = pair.split(":");
-                if (parts.length == 2)
-                {
-                    try
-                    {
-                        int id = Integer.parseInt(parts[0].trim());
-                        int radius = Integer.parseInt(parts[1].trim());
-                        idRadiusMap.put(id, radius);
-                    }
-                    catch (NumberFormatException e) { }
-                }
-            }
-        }
 
         String rawNames = config.radiusNames();
         if (rawNames != null && !rawNames.trim().isEmpty())
