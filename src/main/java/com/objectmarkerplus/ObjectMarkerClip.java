@@ -4,7 +4,6 @@ import java.awt.Toolkit;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 
-//Clipboard
 public class ObjectMarkerClip
 {
     public static void set(String text)

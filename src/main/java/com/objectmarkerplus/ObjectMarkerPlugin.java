@@ -5,34 +5,32 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.inject.Provides;
-
-import net.runelite.api.ChatMessageType;
-import net.runelite.api.Client;
-import net.runelite.api.MenuEntry;
-import net.runelite.client.chat.ChatMessageManager;
-import net.runelite.client.chat.QueuedMessage;
-import net.runelite.client.config.ConfigManager;
-import net.runelite.client.menus.MenuManager;
-import net.runelite.client.menus.WidgetMenuOption;
-import net.runelite.client.plugins.Plugin;
-import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.api.gameval.InterfaceID;
-import net.runelite.client.eventbus.Subscribe;
-import net.runelite.client.events.ConfigChanged;
-import net.runelite.api.events.GameObjectSpawned;
-import net.runelite.api.events.GameObjectDespawned;
-import net.runelite.api.GameObject;
-import net.runelite.client.ui.overlay.OverlayManager;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.GameState;
-
 import lombok.Getter;
-
 import javax.inject.Inject;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.Client;
+import net.runelite.api.GameObject;
+import net.runelite.api.GameState;
+import net.runelite.api.MenuEntry;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.events.GameObjectDespawned;
+import net.runelite.api.events.GameObjectSpawned;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.client.chat.QueuedMessage;
+import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.menus.MenuManager;
+import net.runelite.client.menus.WidgetMenuOption;
+import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(
         name = "Object Markers Plus",
@@ -57,20 +55,18 @@ public class ObjectMarkerPlugin extends Plugin
     @Inject private ConfigManager configManager;
     @Inject private ChatMessageManager chatMessageManager;
     @Inject private Client client;
-
     @Inject private OverlayManager overlayManager;
     @Inject private ObjectMarkerConfig config;
-    @Inject private ObjectMarkerRadiusOverlay radiusOverlay;
-
-    // REMOVED: idRadiusMap (User input for IDs is no longer allowed)
-    @Getter
-    private final Map<String, Integer> nameRadiusMap = new HashMap<>();
-
-    @Getter
-    private final Map<Integer, Integer> resolvedRadiusCache = new HashMap<>();
+    @Inject private ObjectMarkerOverlay overlay;
 
     @Getter
     private final Set<GameObject> trackedObjects = new HashSet<>();
+
+    @Getter
+    private final Map<Integer, Boolean> matchedIdCache = new HashMap<>();
+
+    @Getter
+    private final Set<String> cachedTargetNames = new HashSet<>();
 
     @Provides
     ObjectMarkerConfig provideConfig(ConfigManager configManager)
@@ -83,10 +79,8 @@ public class ObjectMarkerPlugin extends Plugin
     {
         menuManager.addManagedCustomMenu(EXPORT_OPTION, this::HExportObjMarkers);
         menuManager.addManagedCustomMenu(IMPORT_OPTION, this::HImportObjMarkers);
-
-        // Parse config and draw
-        updateRadiusConfig();
-        overlayManager.add(radiusOverlay);
+        overlayManager.add(overlay);
+        updateCachedNames();
     }
 
     @Override
@@ -94,12 +88,66 @@ public class ObjectMarkerPlugin extends Plugin
     {
         menuManager.removeManagedCustomMenu(EXPORT_OPTION);
         menuManager.removeManagedCustomMenu(IMPORT_OPTION);
-
-        // Stop drawing/clear memory
-        overlayManager.remove(radiusOverlay);
-        nameRadiusMap.clear();
-        resolvedRadiusCache.clear();
+        overlayManager.remove(overlay);
         trackedObjects.clear();
+        matchedIdCache.clear();
+        cachedTargetNames.clear();
+    }
+
+    private void updateCachedNames()
+    {
+        cachedTargetNames.clear();
+        String rawNames = config.highlightNames();
+        if (rawNames != null && !rawNames.trim().isEmpty())
+        {
+            for (String name : rawNames.split(","))
+            {
+                String trimmed = name.trim().toLowerCase();
+                if (!trimmed.isEmpty())
+                {
+                    cachedTargetNames.add(trimmed);
+                }
+            }
+        }
+        matchedIdCache.clear();
+    }
+
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event)
+    {
+        if (event.getGameState() == GameState.LOADING)
+        {
+            trackedObjects.clear();
+        }
+    }
+
+    @Subscribe
+    public void onConfigChanged(ConfigChanged event)
+    {
+        if (event.getGroup().equals("objectmarkerplus") && event.getKey().equals("highlightNames"))
+        {
+            updateCachedNames();
+        }
+    }
+
+    @Subscribe
+    public void onGameObjectSpawned(GameObjectSpawned event)
+    {
+        GameObject gameObject = event.getGameObject();
+        if (gameObject != null)
+        {
+            trackedObjects.add(gameObject);
+        }
+    }
+
+    @Subscribe
+    public void onGameObjectDespawned(GameObjectDespawned event)
+    {
+        GameObject gameObject = event.getGameObject();
+        if (gameObject != null)
+        {
+            trackedObjects.remove(gameObject);
+        }
     }
 
     private int getRegion()
@@ -121,13 +169,15 @@ public class ObjectMarkerPlugin extends Plugin
         if (input == null) return "";
         String clean = input.trim();
 
+        // Strip "objectindicators.region_XXXXX=" prefix if it exists
         if (clean.contains("["))
         {
             clean = clean.substring(clean.indexOf("["));
         }
 
-        clean = clean.replace(":", ":");
-        clean = clean.replace("#", "#");
+        // Remove backslash escapes (\: and \#) from older marker formats
+        clean = clean.replace("\\:", ":");
+        clean = clean.replace("\\#", "#");
 
         return clean;
     }
@@ -174,7 +224,7 @@ public class ObjectMarkerPlugin extends Plugin
     {
         String clipboard = sanitizeInput(ObjectMarkerClip.get());
 
-        if (clipboard.isEmpty())
+        if (clipboard == null || clipboard.isEmpty())
         {
             sendChat("Clipboard is empty.");
             return;
@@ -194,23 +244,17 @@ public class ObjectMarkerPlugin extends Plugin
 
             for (JsonElement e : allMarkers)
             {
-                if (!e.isJsonObject())
-                {
-                    continue;
-                }
+                if (!e.isJsonObject()) continue;
 
                 JsonObject obj = e.getAsJsonObject();
-
-                if (!obj.has("regionId"))
-                {
-                    continue;
-                }
+                if (!obj.has("regionId")) continue;
 
                 int region = getSafeInt(obj, "regionId");
                 regionMap.computeIfAbsent(region, k -> new JsonArray()).add(obj);
             }
 
             int totalAdded = 0;
+            int totalSkipped = 0; // dupe
 
             for (Map.Entry<Integer, JsonArray> entry : regionMap.entrySet())
             {
@@ -227,30 +271,20 @@ public class ObjectMarkerPlugin extends Plugin
 
                 for (JsonElement e : existingMarkers)
                 {
-                    if (!e.isJsonObject())
-                    {
-                        continue;
-                    }
-
-                    JsonObject obj = e.getAsJsonObject();
-                    seen.add(markerKey(obj));
+                    if (!e.isJsonObject()) continue;
+                    seen.add(markerKey(e.getAsJsonObject()));
                 }
 
                 int added = 0;
+                int skipped = 0; // dupe
 
                 for (JsonElement e : newMarkers)
                 {
-                    if (!e.isJsonObject())
-                    {
-                        continue;
-                    }
+                    if (!e.isJsonObject()) continue;
 
                     JsonObject obj = e.getAsJsonObject();
 
-                    if (!obj.has("id") ||
-                            !obj.has("regionX") ||
-                            !obj.has("regionY") ||
-                            !obj.has("z"))
+                    if (!obj.has("id") || !obj.has("regionX") || !obj.has("regionY") || !obj.has("z"))
                     {
                         continue;
                     }
@@ -263,9 +297,14 @@ public class ObjectMarkerPlugin extends Plugin
                         seen.add(key);
                         added++;
                     }
+                    else
+                    {
+                        skipped++; // dupe
+                    }
                 }
 
                 totalAdded += added;
+                totalSkipped += skipped;
 
                 configManager.setConfiguration(
                         CONFIG_GROUP,
@@ -274,7 +313,14 @@ public class ObjectMarkerPlugin extends Plugin
                 );
             }
 
-            sendChat("Imported " + totalAdded + " Object markers across " + regionMap.size() + " regions");
+            String message = "Imported " + totalAdded + " Object markers across " + regionMap.size() + " regions";
+
+            if (totalSkipped > 0)
+            {
+                message += " (Skipped " + totalSkipped + " duplicates)";
+            }
+
+            sendChat(message);
         }
         catch (Exception e)
         {
@@ -298,71 +344,5 @@ public class ObjectMarkerPlugin extends Plugin
                         .runeLiteFormattedMessage(msg)
                         .build()
         );
-    }
-
-    @Subscribe
-    public void onGameStateChanged(GameStateChanged event)
-    {
-        if (event.getGameState() == GameState.LOADING)
-        {
-            trackedObjects.clear();
-        }
-    }
-
-    @Subscribe
-    public void onConfigChanged(ConfigChanged event)
-    {
-        // Only listen for changes to the Names configuration now
-        if (event.getGroup().equals("objectmarkerplus") && event.getKey().equals("radiusNames"))
-        {
-            updateRadiusConfig();
-        }
-    }
-
-    @Subscribe
-    public void onGameObjectSpawned(GameObjectSpawned event)
-    {
-        GameObject gameObject = event.getGameObject();
-        if (gameObject != null)
-        {
-            trackedObjects.add(gameObject);
-        }
-    }
-
-    @Subscribe
-    public void onGameObjectDespawned(GameObjectDespawned event)
-    {
-        GameObject gameObject = event.getGameObject();
-        if (gameObject != null)
-        {
-            trackedObjects.remove(gameObject);
-        }
-    }
-
-    private void updateRadiusConfig()
-    {
-        nameRadiusMap.clear();
-        resolvedRadiusCache.clear(); // Clear cache when settings are changed
-
-        String rawNames = config.radiusNames();
-        if (rawNames != null && !rawNames.trim().isEmpty())
-        {
-            String[] pairs = rawNames.split(",");
-            for (String pair : pairs)
-            {
-                String[] parts = pair.split(":");
-                if (parts.length == 2)
-                {
-                    try
-                    {
-                        // case-insensitive matching
-                        String name = parts[0].trim().toLowerCase();
-                        int radius = Integer.parseInt(parts[1].trim());
-                        nameRadiusMap.put(name, radius);
-                    }
-                    catch (NumberFormatException e) { }
-                }
-            }
-        }
     }
 }

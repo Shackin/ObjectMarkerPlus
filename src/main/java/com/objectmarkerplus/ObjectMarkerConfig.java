@@ -1,91 +1,93 @@
 package com.objectmarkerplus;
 
 import java.awt.Color;
+import net.runelite.client.config.Alpha;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
-import net.runelite.client.config.Alpha;
 
 @ConfigGroup("objectmarkerplus")
 public interface ObjectMarkerConfig extends Config
 {
     @ConfigItem(
-            keyName = "showRadiusTiles",
-            name = "Enable Radius",
-            description = "Toggle radius tiles",
+            keyName = "highlightNames",
+            name = "Highlight Names",
+            description = "Object names separated by comma. (bed, chest)",
             position = 1
     )
-    default boolean showRadiusTiles()
-    {
-        return false;
-    }
-
-    @Alpha
-    @ConfigItem(
-            keyName = "radiusFillColor",
-            name = "Fill Color",
-            description = "Tile color",
-            position = 2
-    )
-    default Color radiusFillColor()
-    {
-        return new Color(0, 255, 255, 30);
-    }
-
-    @Alpha
-    @ConfigItem(
-            keyName = "radiusBorderColor",
-            name = "Border Color",
-            description = "The color of the radius outline",
-            position = 3
-    )
-    default Color radiusBorderColor()
-    {
-        return new Color(0, 255, 255, 255);
-    }
-
-    @ConfigItem(
-            keyName = "showRadiusBorder",
-            name = "Show Border",
-            description = "Draw an outline around the highlighted radius",
-            position = 4
-    )
-    default boolean showRadiusBorder()
-    {
-        return false;
-    }
-
-    @ConfigItem(
-            keyName = "radiusNames",
-            name = "Object Names",
-            description = "Format: name:radius,name:radius (e.g. table:3,bank booth:0)",
-            position = 5
-    )
-    default String radiusNames()
+    default String highlightNames()
     {
         return "";
     }
 
     @ConfigItem(
-            keyName = "showClickbox",
-            name = "Show Clickbox",
-            description = "Highlights the exact invisible clickable area of the object",
-            position = 6
+            keyName = "showTile",
+            name = "Highlight Tile",
+            description = "Highlights the tile footprint of the object",
+            position = 2
     )
-    default boolean showClickbox()
+    default boolean showTile()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "showHull",
+            name = "Highlight Hull",
+            description = "Highlights the outline of the model",
+            position = 5
+    )
+    default boolean showHull()
     {
         return false;
     }
 
+
     @Alpha
     @ConfigItem(
-            keyName = "clickboxColor",
-            name = "Clickbox Color",
-            description = "Color of the object's clickable area",
+            keyName = "highlightFillColor",
+            name = "Tile Fill Color",
+            description = "Fill color of the tile",
+            position = 3
+    )
+    default Color highlightFillColor()
+    {
+        return new Color(0, 220, 220, 50);
+    }
+
+    @Alpha
+    @ConfigItem(
+            keyName = "highlightOutlineColor",
+            name = "Tile Outline Color",
+            description = "Outline color of the tile",
+            position = 4
+    )
+    default Color highlightOutlineColor()
+    {
+        return new Color(0, 225, 225, 255);
+    }
+
+    @Alpha
+    @ConfigItem(
+            keyName = "hullFillColor",
+            name = "Hull Fill Color",
+            description = "Fill color of the hull",
+            position = 6
+    )
+    default Color hullFillColor()
+    {
+        return new Color(0, 225, 0, 50);
+    }
+
+    @Alpha
+    @ConfigItem(
+            keyName = "hullOutlineColor",
+            name = "Hull Outline Color",
+            description = "Outline color of the hull",
             position = 7
     )
-    default Color clickboxColor()
+    default Color hullOutlineColor()
     {
-        return new Color(255, 0, 0, 50);
+        return new Color(0, 225, 0, 225);
     }
 }
